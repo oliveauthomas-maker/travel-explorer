@@ -32,21 +32,19 @@ function parseSection(text, keywords) {
   const full = buffer.join("\n").trim();
   if (!full) return [];
 
-  // Parse structured items: title + description + optional badge
-  const rawItems = full.split(/\n{2,}/).map(s => s.trim()).filter(s => s.length > 10);
+  // Split on bold markers or numbered items
+  const chunks = full.split(/(?=\n\*\*|\n\d+\.|(?:\n{2,}))/g)
+    .map(s => s.trim()).filter(s => s.length > 5);
 
-  return rawItems.map(block => {
+  return chunks.map(block => {
     const lines = block.split("\n").filter(Boolean);
-    const titleLine = lines[0].replace(/\*+/g, "").replace(/^[-•]\s*/, "").trim();
-
-    // Extract badge from title: content in parentheses
-    const badgeMatch = titleLine.match(/\(([^)]+)\)$/);
+    const raw = lines[0].replace(/\*+/g,"").replace(/^[-•\d.]\s*/,"").trim();
+    const badgeMatch = raw.match(/\(([^)]+)\)$/);
     const badge = badgeMatch ? badgeMatch[1] : null;
-    const title = badgeMatch ? titleLine.replace(/\s*\([^)]+\)$/, "").trim() : titleLine;
-
-    const description = lines.slice(1).join(" ").replace(/\*+/g, "").trim();
+    const title = badgeMatch ? raw.replace(/\s*\([^)]+\)$/,"").trim() : raw;
+    const description = lines.slice(1).join(" ").replace(/\*+/g,"").trim();
     return { title, description, badge };
-  }).filter(item => item.title);
+  }).filter(i => i.title.length > 2);
 }
 
 // ── Card component ─────────────────────────────────────────────────────────
