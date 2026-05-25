@@ -163,11 +163,11 @@ export default function App() {
     setLoading(true); setData({}); setApiError("");
 
     const sectionMap = {
-      activities: "🎠 ACTIVITÉS & VISITES\n3-4 activités, musées, points d'intérêt adaptés famille/enfant 3 ans. Format : **Nom du lieu** suivi d'une ligne de description.",
-      events:     "🎪 ÉVÉNEMENTS LOCAUX\n2-3 événements actuels ou prochains dans la région. Format : **Nom (date)** suivi d'une ligne.",
-      walks:      "🌿 BALADES & RANDONNÉES\n2-3 balades poussette-friendly ou faciles enfant 3 ans. Format : **Nom (distance, durée)** suivi d'une ligne.",
-      vintage:    "👗 FRIPERIES & VINTAGE\n2-3 adresses friperies ou boutiques vintage. Format : **Nom (adresse)** suivi d'une ligne.",
-    };
+  activities: "🎠 ACTIVITÉS & VISITES\n3 activités famille/enfant 3 ans. Format : **Nom** + 1 ligne.",
+  events:     "🎪 ÉVÉNEMENTS LOCAUX\n2 événements proches. Format : **Nom (date)** + 1 ligne.",
+  walks:      "🌿 BALADES\n2 balades faciles poussette. Format : **Nom (distance)** + 1 ligne.",
+  vintage:    "👗 VINTAGE\n2 friperies/vintage. Format : **Nom (adresse)** + 1 ligne.",
+};
     const sections = selectedTabs.map(id => sectionMap[id]).join("\n\n");
     const prompt = `Tu es un assistant de voyage familial. Guide pour une famille (couple + enfant de 3 ans) à ${cityName} (${location.lat.toFixed(4)}, ${location.lng.toFixed(4)}), rayon ${radius}km.\n\nRéponds UNIQUEMENT avec ces sections :\n\n${sections}\n\nNoms réels, pas d'intro ni de conclusion.`;
 
@@ -178,7 +178,7 @@ export default function App() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           model: "claude-sonnet-4-5",
-          max_tokens: 1200,
+          max_tokens: 800,
           tools: [{ type: "web_search_20250305", name: "web_search" }],
           messages: [{ role: "user", content: prompt }],
         }),
