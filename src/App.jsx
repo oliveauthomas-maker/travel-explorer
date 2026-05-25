@@ -2,9 +2,9 @@ import { useState, useEffect, useRef } from "react";
 
 const TABS = [
   { id: "activities", icon: "🎠", label: "Activités",  color: "#FF6B35", keywords: ["ACTIVIT"] },
-  { id: "events",     icon: "🎪", label: "Événements", color: "#E91E8C", keywords: ["ÉVÉNEM","EVENEM"] },
-  { id: "walks",      icon: "🌿", label: "Balades",    color: "#00C896", keywords: ["BALADE","RANDON"] },
-  { id: "vintage",    icon: "👗", label: "Vintage",    color: "#9B59B6", keywords: ["FRIPERI","VINTAGE"] },
+  { id: "events",     icon: "🎪", label: "Événements", color: "#E91E8C", keywords: ["EVENEM","ÉVÉNEM","EVENT"] },
+  { id: "walks",      icon: "🌿", label: "Balades",    color: "#00C896", keywords: ["BALADE","RANDON","PROMEN"] },
+  { id: "vintage",    icon: "👗", label: "Vintage",    color: "#9B59B6", keywords: ["FRIPERI","VINTAGE","VINTA"] },
 ];
 const ALL_IDS = TABS.map(t => t.id);
 const RADIUS_OPTIONS = [10, 20, 30, 50];
@@ -13,11 +13,15 @@ const RADIUS_OPTIONS = [10, 20, 30, 50];
 function parseSection(text, keywords) {
   const lines = text.split("\n");
   let capturing = false, buffer = [];
-  const allKw = ["ACTIVIT","ÉVÉNEM","EVENEM","BALADE","RANDON","FRIPERI","VINTAGE"];
+  const allKw = ["ACTIVIT","ÉVÉNEM","EVENEM","BALADE","RANDON","FRIPERI","VINTAGE","ÉVÉNEMENTS","EVENTS","VINTA"];
   for (let line of lines) {
-    const up = line.toUpperCase();
-    if (keywords.some(k => up.includes(k))) { capturing = true; buffer = []; continue; }
-    if (capturing && allKw.some(k => up.includes(k) && !keywords.some(kk => up.includes(kk)))) { capturing = false; break; }
+    const up = line.toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    const normalizedKw = keywords.map(k => k.normalize("NFD").replace(/[\u0300-\u036f]/g, ""));
+    if (normalizedKw.some(k => up.includes(k))) { capturing = true; buffer = []; continue; }
+    if (capturing && allKw.some(k => {
+      const kn = k.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      return up.includes(kn) && !normalizedKw.some(kk => up.includes(kk.normalize("NFD").replace(/[\u0300-\u036f]/g, "")));
+    })) { capturing = false; break; }
     if (capturing) buffer.push(line);
   }
   const full = buffer.join("\n").trim();
