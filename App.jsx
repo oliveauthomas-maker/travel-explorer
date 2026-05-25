@@ -1,64 +1,31 @@
 import { useState, useEffect, useRef } from "react";
 
 const TABS = [
-  { id: "activities", icon: "🎠", label: "Activités",   color: "#FF6B35", keywords: ["ACTIVIT"] },
-  { id: "events",     icon: "🎪", label: "Événements",  color: "#E91E8C", keywords: ["EVENEM","ÉVÉNEM","EVENT"] },
-  { id: "walks",      icon: "🌿", label: "Balades",     color: "#00C896", keywords: ["BALADE","RANDON","PROMEN"] },
-  { id: "vintage",    icon: "👗", label: "Vintage",     color: "#9B59B6", keywords: ["FRIPERI","VINTAGE","VINTA"] },
+  { id: "activities", icon: "🎠", label: "Activités",   color: "#FF6B35" },
+  { id: "events",     icon: "🎪", label: "Événements",  color: "#E91E8C" },
+  { id: "walks",      icon: "🌿", label: "Balades",     color: "#00C896" },
+  { id: "vintage",    icon: "👗", label: "Vintage",     color: "#9B59B6" },
 ];
 const ALL_IDS = TABS.map(t => t.id);
 const RADIUS_OPTIONS = [10, 20, 30, 50];
 
-// ── helpers ────────────────────────────────────────────────────────────────
-function normalize(str) {
-  return str.toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+// ── Parse response as JSON ────────────────────────────────────────────────
+function parseJSON(text) {
+  try {
+    const match = text.match(/\{[\s\S]*\}/);
+    if (!match) return null;
+    return JSON.parse(match[0]);
+  } catch { return null; }
 }
 
-function parseSection(text, keywords) {
-  const lines = text.split("\n");
-  let capturing = false, buffer = [];
-  const allKw = ["ACTIVIT","EVENEM","BALADE","RANDON","PROMEN","FRIPERI","VINTAGE","VINTA","EVENT"];
-  const normKw = keywords.map(normalize);
-
-  for (let line of lines) {
-    const up = normalize(line);
-    if (normKw.some(k => up.includes(k))) { capturing = true; buffer = []; continue; }
-    if (capturing && allKw.some(k => up.includes(k) && !normKw.some(kk => up.includes(kk)))) {
-      capturing = false; break;
-    }
-    if (capturing) buffer.push(line);
-  }
-
-  const full = buffer.join("\n").trim();
-  if (!full) return [];
-
-  // Split on bold markers or numbered items
-  const chunks = full.split(/(?=\n\*\*|\n\d+\.|(?:\n{2,}))/g)
-    .map(s => s.trim()).filter(s => s.length > 5);
-
-  return chunks.map(block => {
-    const lines = block.split("\n").filter(Boolean);
-    const raw = lines[0].replace(/\*+/g,"").replace(/^[-•\d.]\s*/,"").trim();
-    const badgeMatch = raw.match(/\(([^)]+)\)$/);
-    const badge = badgeMatch ? badgeMatch[1] : null;
-    const title = badgeMatch ? raw.replace(/\s*\([^)]+\)$/,"").trim() : raw;
-    const description = lines.slice(1).join(" ").replace(/\*+/g,"").trim();
-    return { title, description, badge };
-  }).filter(i => i.title.length > 2);
-}
-
-// ── Card component ─────────────────────────────────────────────────────────
+// ── Card ──────────────────────────────────────────────────────────────────
 function Card({ item, color }) {
   return (
     <div style={{
       background: "rgba(255,255,255,0.04)",
       border: "1px solid rgba(255,255,255,0.07)",
-      borderRadius: 16,
-      padding: "18px 20px",
-      marginBottom: 10,
-      animation: "fadeUp 0.35s ease",
-      position: "relative",
-      overflow: "hidden",
+      borderRadius: 16, padding: "18px 20px", marginBottom: 10,
+      animation: "fadeUp 0.35s ease", position: "relative", overflow: "hidden",
     }}>
       <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, ${color}, transparent)` }} />
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
@@ -66,17 +33,7 @@ function Card({ item, color }) {
           {item.title}
         </p>
         {item.badge && (
-          <span style={{
-            flexShrink: 0,
-            background: `${color}22`,
-            border: `1px solid ${color}55`,
-            color: color,
-            borderRadius: 20,
-            padding: "3px 10px",
-            fontSize: 11,
-            fontWeight: 600,
-            whiteSpace: "nowrap",
-          }}>
+          <span style={{ flexShrink: 0, background: `${color}22`, border: `1px solid ${color}55`, color, borderRadius: 20, padding: "3px 10px", fontSize: 11, fontWeight: 600, whiteSpace: "nowrap" }}>
             {item.badge}
           </span>
         )}
@@ -90,7 +47,6 @@ function Card({ item, color }) {
   );
 }
 
-// ── Spinner ────────────────────────────────────────────────────────────────
 function Spinner() {
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16, padding: "60px 20px" }}>
@@ -100,7 +56,6 @@ function Spinner() {
   );
 }
 
-// ── LocationSearch ─────────────────────────────────────────────────────────
 function LocationSearch({ onSelect }) {
   const [query, setQuery] = useState("");
   const [suggestions, setSuggestions] = useState([]);
@@ -124,8 +79,7 @@ function LocationSearch({ onSelect }) {
     const p = feature.properties;
     const label = [p.name, p.city || p.town || p.village, p.country].filter(Boolean).join(", ");
     const [lng, lat] = feature.geometry.coordinates;
-    setQuery(label);
-    setOpen(false);
+    setQuery(label); setOpen(false);
     onSelect({ lat, lng }, p.name || p.city || label);
   };
 
@@ -162,7 +116,7 @@ function LocationSearch({ onSelect }) {
   );
 }
 
-// ── Main App ───────────────────────────────────────────────────────────────
+// ── Main ──────────────────────────────────────────────────────────────────
 export default function App() {
   const [location, setLocation] = useState(null);
   const [cityName, setCityName] = useState("");
@@ -215,43 +169,37 @@ export default function App() {
     if (!location) return;
     setLoading(true); setData({}); setApiError("");
 
-    const sectionMap = {
-      activities: `🎠 ACTIVITES & VISITES
-Propose 3 activités, musées ou attractions dans un rayon de ${radius}km autour de ${cityName} (coordonnées ${location.lat.toFixed(4)}, ${location.lng.toFixed(4)}), adaptées famille avec enfant de 3 ans. Inclus des lieux dans les villes voisines si nécessaire.
-Format pour chaque item :
-**Nom du lieu (ville si différente de ${cityName})**
-Une phrase de description courte et pratique.`,
+    // Ask Claude to return strict JSON — no parsing ambiguity
+    const prompt = `Tu es un guide de voyage local expert. Position GPS : ${location.lat.toFixed(4)}, ${location.lng.toFixed(4)} (${cityName}). Rayon : ${radius}km.
 
-      events: `🎪 EVENEMENTS LOCAUX
-Liste 3 événements actuels ou à venir dans un rayon de ${radius}km autour de ${cityName}, adaptés en famille.
-Format pour chaque item :
-**Nom de l'événement (date ou période)**
-Une phrase de description.`,
+Cherche dans TOUTES les communes dans ce rayon. Si la ville est petite, inclus les grandes villes proches dans le rayon.
 
-      walks: `🌿 BALADES & RANDONNEES
-Propose 3 balades faciles poussette-friendly dans un rayon de ${radius}km autour de ${cityName}. Inclus des sentiers dans les communes voisines.
-Format pour chaque item :
-**Nom du lieu (distance · durée)**
-Une phrase de description.`,
+Réponds UNIQUEMENT avec un objet JSON valide, sans texte avant ni après, sans balises markdown. Format exact :
+{
+  "activities": [
+    {"title": "Nom du lieu", "description": "Une phrase de description pratique.", "badge": null},
+    {"title": "Nom du lieu 2", "description": "Description.", "badge": null},
+    {"title": "Nom du lieu 3", "description": "Description.", "badge": null}
+  ],
+  "events": [
+    {"title": "Nom événement", "description": "Description.", "badge": "date ou période"},
+    {"title": "Nom événement 2", "description": "Description.", "badge": "date"},
+    {"title": "Nom événement 3", "description": "Description.", "badge": "date"}
+  ],
+  "walks": [
+    {"title": "Nom balade", "description": "Description poussette-friendly.", "badge": "distance · durée"},
+    {"title": "Nom balade 2", "description": "Description.", "badge": "distance · durée"},
+    {"title": "Nom balade 3", "description": "Description.", "badge": "distance · durée"}
+  ],
+  "vintage": [
+    {"title": "Nom boutique", "description": "Description.", "badge": "adresse courte"},
+    {"title": "Nom boutique 2", "description": "Description.", "badge": "adresse"},
+    {"title": "Nom boutique 3", "description": "Description.", "badge": "adresse"}
+  ]
+}
 
-      vintage: `👗 FRIPERIES & VINTAGE
-Indique 3 friperies ou boutiques vintage dans un rayon de ${radius}km autour de ${cityName}. Inclus des adresses dans les villes proches comme Bordeaux si dans le rayon.
-Format pour chaque item :
-**Nom de la boutique (adresse courte)**
-Une phrase de description.`,
-    };
-
-    const sections = selectedTabs.map(id => sectionMap[id]).join("\n\n");
-    const prompt = `Tu es un guide de voyage local expert. Voici la position GPS exacte de l'utilisateur : ${location.lat.toFixed(4)}, ${location.lng.toFixed(4)} (${cityName}). Rayon de recherche : ${radius}km.
-
-IMPORTANT : cherche dans TOUTES les communes dans ce rayon, pas uniquement la ville exacte. Si la ville est petite, élargis à la région et aux grandes villes proches dans le rayon indiqué.
-
-${sections}
-
-Règles strictes :
-- Noms de lieux réels et vérifiables
-- Pas d'introduction ni de conclusion
-- Respecte exactement le format demandé pour chaque section`;
+Catégories à inclure : ${selectedTabs.join(", ")}. Pour les catégories non demandées, mets un tableau vide [].
+Noms réels et vérifiables. Adapté famille avec enfant de 3 ans.`;
 
     try {
       const res = await fetch("/api/search", {
@@ -271,10 +219,11 @@ Règles strictes :
 
       const json = await res.json();
       const text = json.content?.filter(b => b.type === "text").map(b => b.text).join("\n") || "";
-      setLastFetch(new Date());
+      const parsed = parseJSON(text);
 
-      const parsed = {};
-      TABS.forEach(t => { parsed[t.id] = parseSection(text, t.keywords); });
+      if (!parsed) throw new Error("Format de réponse invalide. Réessayez.");
+
+      setLastFetch(new Date());
       setData(parsed);
 
       const firstWithData = selectedTabs.find(id => parsed[id]?.length > 0);
@@ -293,6 +242,7 @@ Règles strictes :
   return (
     <div style={{ minHeight: "100vh", background: "#0D0D14", position: "relative", overflow: "hidden" }}>
       <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@900&display=swap');
         @keyframes spin    { to { transform: rotate(360deg); } }
         @keyframes fadeUp  { from { opacity:0; transform:translateY(14px); } to { opacity:1; transform:translateY(0); } }
         @keyframes pulse   { 0%,100%{opacity:1} 50%{opacity:0.35} }
@@ -300,6 +250,7 @@ Règles strictes :
         ::-webkit-scrollbar { width: 0; }
         input::placeholder { color: rgba(255,255,255,0.3); }
         button { -webkit-tap-highlight-color: transparent; }
+        body { font-family: 'DM Sans', sans-serif; }
       `}</style>
 
       <div style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 0 }}>
@@ -334,8 +285,7 @@ Règles strictes :
               <div style={{ flex: 1, minWidth: 0 }}>
                 {location
                   ? <><p style={{ fontSize: 13, fontWeight: 600, color: "#00C896", marginBottom: 1 }}>{cityName}</p><p style={{ fontSize: 11, color: "rgba(255,255,255,0.3)" }}>{location.lat.toFixed(4)}, {location.lng.toFixed(4)}</p></>
-                  : <p style={{ fontSize: 13, color: "rgba(255,255,255,0.4)" }}>{locError || "Appuyez pour vous localiser"}</p>
-                }
+                  : <p style={{ fontSize: 13, color: "rgba(255,255,255,0.4)" }}>{locError || "Appuyez pour vous localiser"}</p>}
               </div>
               <button onClick={getLocation} disabled={locLoading} style={{ background: location ? "rgba(0,200,150,0.15)" : "linear-gradient(135deg,#FF6B35,#E91E8C)", border: "none", borderRadius: 10, padding: "8px 14px", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", flexShrink: 0 }}>
                 {locLoading ? "…" : location ? "Actualiser" : "Localiser"}
@@ -412,23 +362,19 @@ Règles strictes :
             </div>
           )}
           {loading && <Spinner />}
-
           {!loading && hasResults && data[viewTab]?.length > 0 && (
             <>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
                 <div style={{ width: 3, height: 16, borderRadius: 2, background: activeColor }} />
                 <p style={{ fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.4)", letterSpacing: 1, textTransform: "uppercase" }}>
-                  {data[viewTab].length} résultat{data[viewTab].length > 1 ? "s" : ""} · rayon {radius} km
+                  {data[viewTab].length} résultat{data[viewTab].length > 1 ? "s" : ""} · {radius} km
                 </p>
               </div>
               {data[viewTab].map((item, i) => <Card key={i} item={item} color={activeColor} />)}
             </>
           )}
-
           {!loading && hasResults && !data[viewTab]?.length && (
-            <p style={{ textAlign: "center", color: "rgba(255,255,255,0.3)", fontSize: 14, padding: "40px 0" }}>
-              Aucun résultat pour cette section.
-            </p>
+            <p style={{ textAlign: "center", color: "rgba(255,255,255,0.3)", fontSize: 14, padding: "40px 0" }}>Aucun résultat pour cette section.</p>
           )}
         </div>
       </div>
