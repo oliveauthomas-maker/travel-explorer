@@ -229,11 +229,13 @@ Rules:
         throw new Error(typeof err.error === "string" ? err.error : JSON.stringify(err.error));
       }
 
-      const json = await res.json();
-      const text = json.content?.filter(b => b.type === "text").map(b => b.text).join("\n") || "";
-      const parsed = parseJSON(text);
-
-      if (!parsed) throw new Error("Format de réponse invalide. Réessayez.");
+     const json = await res.json();
+const text = json.content?.filter(b => b.type === "text").map(b => b.text).join("\n") || "";
+const parsed = parseJSON(text);
+if (!parsed) {
+ // Show raw response for debugging
+ throw new Error("Réponse brute : " + text.substring(0, 200));
+}
 
       // Pre-compute distances
       TABS.forEach(t => {
