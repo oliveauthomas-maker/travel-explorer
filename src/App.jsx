@@ -17,20 +17,14 @@ function distanceKm(lat1, lng1, lat2, lng2) {
 }
 
 function parseJSON(text) {
-  // Step 1: strip markdown fences
-  let cleaned = text;
-  cleaned = cleaned.replace(/^```json\s*/i, "");
-  cleaned = cleaned.replace(/^```\s*/i, "");
-  cleaned = cleaned.replace(/```\s*$/i, "");
-  cleaned = cleaned.trim();
-
-  // Step 2: extract from first { to last }
-  const start = cleaned.indexOf("{");
-  const end = cleaned.lastIndexOf("}");
-  if (start === -1 || end === -1) return null;
-  cleaned = cleaned.slice(start, end + 1);
-
-  try { return JSON.parse(cleaned); } catch { return null; }
+ const start = text.indexOf("{");
+ const end = text.lastIndexOf("}");
+ if (start === -1 || end === -1) return null;
+ try {
+   return JSON.parse(text.slice(start, end + 1));
+ } catch {
+   return null;
+ }
 }
 
 function Card({ item, color }) {
