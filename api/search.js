@@ -35,13 +35,39 @@ module.exports = async function handler(req, res) {
       response.on("end", () => {
         try {
           const parsed = JSON.parse(data);
+
           if (response.statusCode !== 200) {
             res.status(response.statusCode).json({ error: parsed?.error?.message || "Erreur API" });
-          } else {
-            res.status(200).json(parsed);
+            return resolve();
           }
+
+          // Extract text content from Claude response
+          const rawText = (parsed.content || [])
+            .filter(b => b.type === "text")
+            .map(b => b.text)
+            .join("");
+
+          // Clean: find first { and last } to extract pure JSON
+          const start = rawText.indexOf("{");
+          const end = rawText.lastIndexOf("}");
+
+          if (start === -1 || end === -1) {
+            res.status(200).json({ ...parsed, _parsed: null, _error: "No JSON found in: " + rawText.substring(0, 100) });
+            return resolve();
+          }
+
+          const jsonStr = rawText.slice(start, end + 1);
+
+          try {
+            const result = JSON.parse(jsonStr);
+            // Return the parsed data directly
+            res.status(200).json({ success: true, data: result });
+          } catch (e) {
+            res.status(200).json({ success: false, _error: "JSON parse failed: " + e.message, _raw: jsonStr.substring(0, 200) });
+          }
+
         } catch (e) {
-          res.status(500).json({ error: "Parse error: " + e.message });
+          res.status(500).json({ error: "Response parse error: " + e.message });
         }
         resolve();
       });
