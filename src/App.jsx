@@ -19,11 +19,28 @@ function distanceKm(lat1, lng1, lat2, lng2) {
 
 // ── Parse JSON from Claude response ───────────────────────────────────────
 function parseJSON(text) {
-  try {
-    const match = text.match(/\{[\s\S]*\}/);
-    if (!match) return null;
-    return JSON.parse(match[0]);
-  } catch { return null; }
+ try {
+   // Try direct parse first
+   return JSON.parse(text.trim());
+ } catch {}
+ try {
+   // Extract JSON between first { and last }
+   const start = text.indexOf("{");
+   const end = text.lastIndexOf("}");
+   if (start !== -1 && end !== -1) {
+     return JSON.parse(text.slice(start, end + 1));
+   }
+ } catch {}
+ try {
+   // Remove markdown code blocks
+   const cleaned = text.replace(/```json|```/g, "").trim();
+   const start = cleaned.indexOf("{");
+   const end = cleaned.lastIndexOf("}");
+   if (start !== -1 && end !== -1) {
+     return JSON.parse(cleaned.slice(start, end + 1));
+   }
+ } catch {}
+ return null;
 }
 
 // ── Components ────────────────────────────────────────────────────────────
