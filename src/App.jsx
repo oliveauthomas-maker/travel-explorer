@@ -8,7 +8,6 @@ const TABS = [
 ];
 const RADIUS_OPTIONS = [10, 20, 30, 40];
 
-// ── Distance calculation (Haversine) ──────────────────────────────────────
 function distanceKm(lat1, lng1, lat2, lng2) {
   const R = 6371;
   const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -17,27 +16,23 @@ function distanceKm(lat1, lng1, lat2, lng2) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 }
 
-// ── Parse JSON from Claude response ───────────────────────────────────────
 function parseJSON(text) {
- // Remove markdown code blocks
- const cleaned = text
-   .replace(/```json\s*/gi, "")
-   .replace(/```\s*/gi, "")
-   .trim();
- try {
-   return JSON.parse(cleaned);
- } catch {}
- try {
-   const start = cleaned.indexOf("{");
-   const end = cleaned.lastIndexOf("}");
-   if (start !== -1 && end !== -1) {
-     return JSON.parse(cleaned.slice(start, end + 1));
-   }
- } catch {}
- return null;
+  // Step 1: strip markdown fences
+  let cleaned = text;
+  cleaned = cleaned.replace(/^```json\s*/i, "");
+  cleaned = cleaned.replace(/^```\s*/i, "");
+  cleaned = cleaned.replace(/```\s*$/i, "");
+  cleaned = cleaned.trim();
+
+  // Step 2: extract from first { to last }
+  const start = cleaned.indexOf("{");
+  const end = cleaned.lastIndexOf("}");
+  if (start === -1 || end === -1) return null;
+  cleaned = cleaned.slice(start, end + 1);
+
+  try { return JSON.parse(cleaned); } catch { return null; }
 }
 
-// ── Components ────────────────────────────────────────────────────────────
 function Card({ item, color }) {
   return (
     <div style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 14, padding: "16px 18px", marginBottom: 8, position: "relative", overflow: "hidden", animation: "fadeUp 0.3s ease" }}>
@@ -106,8 +101,7 @@ function LocationSearch({ onSelect }) {
             const main = [p.name, p.city || p.town || p.village].filter(Boolean).join(", ");
             const sub = [p.county, p.country].filter(Boolean).join(", ");
             return (
-              <button key={i} onClick={() => pick(s)}
-                style={{ width: "100%", textAlign: "left", padding: "12px 16px", background: "none", border: "none", borderBottom: i < suggestions.length-1 ? "1px solid rgba(255,255,255,0.06)" : "none", cursor: "pointer", fontFamily: "inherit", display: "block" }}
+              <button key={i} onClick={() => pick(s)} style={{ width: "100%", textAlign: "left", padding: "12px 16px", background: "none", border: "none", borderBottom: i < suggestions.length-1 ? "1px solid rgba(255,255,255,0.06)" : "none", cursor: "pointer", fontFamily: "inherit", display: "block" }}
                 onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.06)"}
                 onMouseLeave={e => e.currentTarget.style.background = "none"}>
                 <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: "#fff" }}>{main}</p>
@@ -121,32 +115,27 @@ function LocationSearch({ onSelect }) {
   );
 }
 
-// ── Main App ──────────────────────────────────────────────────────────────
 export default function App() {
-  const [location, setLocation]   = useState(null);
-  const [cityName, setCityName]   = useState("");
-  const [radius, setRadius]       = useState(40); // default 40km
-  const [activeTab, setActiveTab] = useState("activities");
-  const [loading, setLoading]     = useState(false);
+  const [location, setLocation]     = useState(null);
+  const [cityName, setCityName]     = useState("");
+  const [radius, setRadius]         = useState(40);
+  const [activeTab, setActiveTab]   = useState("activities");
+  const [loading, setLoading]       = useState(false);
   const [locLoading, setLocLoading] = useState(false);
-  const [locError, setLocError]   = useState("");
-  const [allData, setAllData]     = useState({}); // raw data with coords
-  const [lastFetch, setLastFetch] = useState(null);
-  const [locMode, setLocMode]     = useState("auto");
-  const [apiError, setApiError]   = useState("");
+  const [locError, setLocError]     = useState("");
+  const [allData, setAllData]       = useState({});
+  const [lastFetch, setLastFetch]   = useState(null);
+  const [locMode, setLocMode]       = useState("auto");
+  const [apiError, setApiError]     = useState("");
 
-  // Filter items by current radius using their stored coordinates
   const filterByRadius = (items, rad) => {
     if (!location || !items?.length) return items || [];
-    return items.filter(item => {
-      if (item.lat == null || item.lng == null) return true; // keep if no coords
-      const d = distanceKm(location.lat, location.lng, item.lat, item.lng);
-      item.dist = d;
-      return d <= rad;
-    });
+    return items.map(item => ({
+      ...item,
+      dist: item.lat && item.lng ? distanceKm(location.lat, location.lng, item.lat, item.lng) : null,
+    })).filter(item => item.dist === null || item.dist <= rad);
   };
 
-  // Compute filtered data reactively
   const data = {};
   TABS.forEach(t => { data[t.id] = filterByRadius(allData[t.id], radius); });
 
@@ -175,37 +164,20 @@ export default function App() {
     if (!location) return;
     setLoading(true); setAllData({}); setApiError("");
 
-    const prompt = `You are a local travel expert. User GPS position: ${location.lat.toFixed(4)}, ${location.lng.toFixed(4)} (${cityName}). Search radius: 40km (return everything within 40km so the user can filter dynamically).
+    const prompt = `You are a local travel expert. User GPS: ${location.lat.toFixed(4)}, ${location.lng.toFixed(4)} (${cityName}). Search within 40km radius.
 
-Return ONLY a valid JSON object, no markdown, no text before or after:
-{
-  "activities": [
-    {"title": "Place name", "description": "Short practical description for a family with a 3-year-old child.", "lat": 0.0000, "lng": 0.0000},
-    ... up to 10 items
-  ],
-  "events": [
-    {"title": "Event name – date or period", "description": "Short description.", "lat": 0.0000, "lng": 0.0000},
-    ... up to 10 items
-  ],
-  "walks": [
-    {"title": "Walk name – distance", "description": "Easy walk or hike, max 15km, stroller-friendly if possible.", "lat": 0.0000, "lng": 0.0000},
-    ... up to 10 items
-  ],
-  "vintage": [
-    {"title": "Shop name", "description": "Short description of the thrift/vintage shop.", "lat": 0.0000, "lng": 0.0000},
-    ... up to 10 items
-  ]
-}
+Return ONLY raw JSON (no markdown, no backticks, no explanation). Exactly this structure:
+{"activities":[{"title":"Name","description":"Short description for family with 3-year-old.","lat":0.0,"lng":0.0}],"events":[{"title":"Name – date","description":"Short description.","lat":0.0,"lng":0.0}],"walks":[{"title":"Name – distance","description":"Easy walk max 15km, stroller-friendly.","lat":0.0,"lng":0.0}],"vintage":[{"title":"Shop name","description":"Short description of thrift/vintage shop.","lat":0.0,"lng":0.0}]}
 
 Rules:
-- activities: museums, points of interest, family attractions
-- events: local events happening soon in the region
-- walks: hikes, walks, nature paths — max 15km distance
-- vintage: thrift stores, second-hand shops, vintage clothing stores
-- Include real, verifiable place names
-- Always include accurate lat/lng coordinates for each item
-- Search across ALL towns within 40km, not just the exact city
-- Works worldwide, not just France`;
+- activities: museums, attractions, points of interest, family activities
+- events: local events happening soon in the region  
+- walks: hikes and walks max 15km, stroller-friendly preferred
+- vintage: thrift stores, second-hand shops, vintage clothing
+- Up to 10 items per category
+- Real verifiable place names with accurate coordinates
+- Search ALL towns within 40km, not just the main city
+- Works worldwide`;
 
     try {
       const res = await fetch("/api/search", {
@@ -213,7 +185,7 @@ Rules:
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           model: "claude-sonnet-4-5",
-          max_tokens: 1000,
+          max_tokens: 1500,
           messages: [{ role: "user", content: prompt }],
         }),
       });
@@ -223,28 +195,15 @@ Rules:
         throw new Error(typeof err.error === "string" ? err.error : JSON.stringify(err.error));
       }
 
-     const json = await res.json();
-const text = json.content?.filter(b => b.type === "text").map(b => b.text).join("\n") || "";
-const parsed = parseJSON(text);
-if (!parsed) {
- // Show raw response for debugging
- throw new Error("Réponse brute : " + text.substring(0, 200));
-}
+      const json = await res.json();
+      const text = json.content?.filter(b => b.type === "text").map(b => b.text).join("\n") || "";
+      const parsed = parseJSON(text);
 
-      // Pre-compute distances
-      TABS.forEach(t => {
-        if (parsed[t.id]) {
-          parsed[t.id] = parsed[t.id].map(item => ({
-            ...item,
-            dist: item.lat && item.lng ? distanceKm(location.lat, location.lng, item.lat, item.lng) : null,
-          }));
-        }
-      });
+      if (!parsed) throw new Error("Réponse invalide. Réessayez.");
 
       setAllData(parsed);
       setLastFetch(new Date());
 
-      // Auto-switch to first tab with results
       const firstWithData = TABS.find(t => parsed[t.id]?.length > 0);
       if (firstWithData) setActiveTab(firstWithData.id);
 
@@ -275,14 +234,12 @@ if (!parsed) {
 
       <div style={{ position: "relative", zIndex: 1, maxWidth: 500, margin: "0 auto", padding: "0 0 80px" }}>
 
-        {/* Header */}
         <div style={{ padding: "48px 24px 20px" }}>
           <p style={{ fontSize: 11, letterSpacing: 3, textTransform: "uppercase", color: "rgba(255,255,255,0.3)", marginBottom: 6 }}>Guide de voyage</p>
           <h1 style={{ fontFamily: "'Playfair Display',serif", fontSize: 36, fontWeight: 900, lineHeight: 1.1, marginBottom: 24, background: "linear-gradient(135deg,#fff 30%,rgba(255,255,255,0.45))", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
             Explorer<br />autour de moi
           </h1>
 
-          {/* Mode toggle */}
           <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
             {[["auto","📍 GPS"],["manual","✏️ Manuel"]].map(([mode, label]) => (
               <button key={mode} onClick={() => setLocMode(mode)} style={{ flex: 1, padding: "10px 0", borderRadius: 12, border: "none", background: locMode === mode ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.04)", color: locMode === mode ? "#fff" : "rgba(255,255,255,0.35)", fontSize: 13, fontWeight: locMode === mode ? 600 : 400, cursor: "pointer", fontFamily: "inherit", transition: "all 0.2s" }}>
@@ -291,7 +248,6 @@ if (!parsed) {
             ))}
           </div>
 
-          {/* GPS */}
           {locMode === "auto" && (
             <div style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", borderRadius: 14, padding: "13px 16px", display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
               <div style={{ width: 34, height: 34, borderRadius: "50%", flexShrink: 0, background: location ? "rgba(0,200,150,0.18)" : "rgba(255,255,255,0.07)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15 }}>
@@ -308,7 +264,6 @@ if (!parsed) {
             </div>
           )}
 
-          {/* Manuel */}
           {locMode === "manual" && (
             <div style={{ marginBottom: 14 }}>
               <LocationSearch onSelect={(loc, name) => { setLocation(loc); setCityName(name); }} />
@@ -316,7 +271,6 @@ if (!parsed) {
             </div>
           )}
 
-          {/* Rayon */}
           <div style={{ marginBottom: 20 }}>
             <p style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", letterSpacing: 1, textTransform: "uppercase", marginBottom: 10 }}>Rayon de recherche</p>
             <div style={{ display: "flex", gap: 8 }}>
@@ -328,7 +282,6 @@ if (!parsed) {
             </div>
           </div>
 
-          {/* CTA */}
           <button onClick={fetchData} disabled={!location || loading} style={{ width: "100%", padding: "16px", background: (!location || loading) ? "rgba(255,255,255,0.06)" : "linear-gradient(135deg,#FF6B35,#E91E8C)", border: "none", borderRadius: 16, color: (!location || loading) ? "rgba(255,255,255,0.25)" : "#fff", fontSize: 15, fontWeight: 700, cursor: (!location || loading) ? "default" : "pointer", fontFamily: "inherit", transition: "all 0.25s", boxShadow: (!location || loading) ? "none" : "0 4px 24px rgba(255,107,53,0.3)" }}>
             {loading ? "🔍 Recherche en cours…" : "🔍 Rechercher"}
             {lastFetch && !loading && <span style={{ marginLeft: 10, fontSize: 11, opacity: 0.55 }}>· {lastFetch.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</span>}
@@ -341,7 +294,6 @@ if (!parsed) {
           )}
         </div>
 
-        {/* Empty state */}
         {!location && !loading && (
           <div style={{ textAlign: "center", padding: "40px 24px" }}>
             <div style={{ fontSize: 52, marginBottom: 16 }}>🗺️</div>
@@ -353,7 +305,6 @@ if (!parsed) {
 
         {loading && <Spinner />}
 
-        {/* Tabs + results */}
         {!loading && hasResults && (
           <>
             <div style={{ padding: "4px 24px 16px", display: "flex", gap: 8, overflowX: "auto" }}>
@@ -375,7 +326,6 @@ if (!parsed) {
                   {data[activeTab]?.length || 0} résultat{(data[activeTab]?.length || 0) > 1 ? "s" : ""} · {radius} km
                 </p>
               </div>
-
               {data[activeTab]?.length > 0
                 ? data[activeTab].map((item, i) => <Card key={i} item={item} color={activeColor} />)
                 : <p style={{ textAlign: "center", color: "rgba(255,255,255,0.3)", fontSize: 14, padding: "40px 0" }}>Aucun résultat dans ce rayon.</p>
