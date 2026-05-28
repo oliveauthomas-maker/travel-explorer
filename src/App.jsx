@@ -189,23 +189,16 @@ Rules:
         throw new Error(typeof err.error === "string" ? err.error : JSON.stringify(err.error));
       }
 
-      const json = await res.json();
-      const text = json.content?.filter(b => b.type === "text").map(b => b.text).join("\n") || "";
-      const parsed = parseJSON(text);
-
-      if (!parsed) throw new Error("Réponse invalide. Réessayez.");
-
-      setAllData(parsed);
-      setLastFetch(new Date());
-
-      const firstWithData = TABS.find(t => parsed[t.id]?.length > 0);
-      if (firstWithData) setActiveTab(firstWithData.id);
-
-    } catch (e) {
-      setApiError(e.message || "Erreur lors de la recherche.");
-    }
-    setLoading(false);
-  };
+const json = await res.json();
+if (json.success && json.data) {
+ const parsed = json.data;
+ setAllData(parsed);
+ setLastFetch(new Date());
+ const firstWithData = TABS.find(t => parsed[t.id]?.length > 0);
+ if (firstWithData) setActiveTab(firstWithData.id);
+} else {
+ throw new Error(json._error || json.error || "Réponse invalide");
+}
 
   return (
     <div style={{ minHeight: "100vh", background: "#0D0D14", position: "relative", overflow: "hidden" }}>
