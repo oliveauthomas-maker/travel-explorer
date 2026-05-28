@@ -1,6 +1,4 @@
-export const maxDuration = 30;
-
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
@@ -12,10 +10,9 @@ export default async function handler(req, res) {
   if (!apiKey) return res.status(500).json({ error: "Clé API manquante" });
 
   try {
-    // Inject a system prompt that forbids markdown
     const body = {
       ...req.body,
-      system: "You are a JSON API. You must respond with ONLY raw valid JSON. Never use markdown, never use backticks, never add any explanation before or after the JSON. Your entire response must be parseable by JSON.parse().",
+      system: "You are a JSON API. Respond with ONLY raw valid JSON. No markdown, no backticks, no explanation. Your entire response must be directly parseable by JSON.parse().",
     };
 
     const response = await fetch("https://api.anthropic.com/v1/messages", {
@@ -35,10 +32,3 @@ export default async function handler(req, res) {
         error: data?.error?.message || JSON.stringify(data)
       });
     }
-
-    res.status(200).json(data);
-
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-}
