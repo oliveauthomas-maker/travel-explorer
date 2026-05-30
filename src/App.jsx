@@ -153,7 +153,7 @@ export default function App() {
     if (!location) return;
     setLoading(true); setAllData({}); setApiError("");
 
-    const prompt = "You are a local travel expert. GPS: " + location.lat.toFixed(4) + ", " + location.lng.toFixed(4) + " (" + cityName + "). Radius: 40km. Search ALL towns within radius.\n\nReturn ONLY this JSON structure with no extra text:\n{\"activities\":[{\"title\":\"Name\",\"description\":\"Brief family-friendly description.\",\"lat\":0.0,\"lng\":0.0}],\"events\":[{\"title\":\"Name\",\"description\":\"Brief description.\",\"lat\":0.0,\"lng\":0.0}],\"walks\":[{\"title\":\"Name\",\"description\":\"Easy walk max 15km.\",\"lat\":0.0,\"lng\":0.0}],\"vintage\":[{\"title\":\"Shop name\",\"description\":\"Thrift or vintage shop.\",\"lat\":0.0,\"lng\":0.0}]}\n\nUp to 5 items per category. Keep descripions under 10 words. Real places with accurate coordinates.";
+    const prompt = "You are a local travel expert. GPS: " + location.lat.toFixed(4) + ", " + location.lng.toFixed(4) + " (" + cityName + "). Radius: 40km. Search ALL towns within radius.\n\nReturn ONLY this JSON structure with no extra text:\n{\"activities\":[{\"title\":\"Name\",\"description\":\"Brief family-friendly description.\",\"lat\":0.0,\"lng\":0.0}],\"events\":[{\"title\":\"Name\",\"description\":\"Brief description.\",\"lat\":0.0,\"lng\":0.0}],\"walks\":[{\"title\":\"Name\",\"description\":\"Easy walk max 15km.\",\"lat\":0.0,\"lng\":0.0}],\"vintage\":[{\"title\":\"Shop name\",\"description\":\"Thrift or vintage shop.\",\"lat\":0.0,\"lng\":0.0}]}\n\nUp to 5 items per category. Keep descripions under 10 words. Always respond in French. Real places with accurate coordinates.";
 
     try {
       const res = await fetch("/api/search", {
