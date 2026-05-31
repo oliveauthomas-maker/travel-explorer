@@ -153,6 +153,11 @@ export default function App() {
     if (!location) return;
     setLoading(true); setAllData({}); setApiError("");
 
+    const today = new Date();
+    const dateStr = today.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
+    const in2weeks = new Date(today.getTime() + 14 * 24 * 60 * 60 * 1000);
+    const in2weeksStr = in2weeks.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
+    
     const prompt = "You are a local travel expert. GPS: " + location.lat.toFixed(4) + ", " + location.lng.toFixed(4) + " (" + cityName + "). Radius: 40km. Search ALL towns within radius.\n\nReturn ONLY this JSON structure with no extra text:\n{\"activities\":[{\"title\":\"Name\",\"description\":\"Brief family-friendly description.\",\"lat\":0.0,\"lng\":0.0}],\"events\":[{\"title\":\"Name\",\"description\":\"Brief description.\",\"lat\":0.0,\"lng\":0.0}],\"walks\":[{\"title\":\"Name\",\"description\":\"Easy walk max 15km.\",\"lat\":0.0,\"lng\":0.0}],\"vintage\":[{\"title\":\"Shop name\",\"description\":\"Thrift or vintage shop.\",\"lat\":0.0,\"lng\":0.0}]}\n\nUp to 5 items per category. Keep descripions under 10 words. Always respond in French. Real places with accurate coordinates.";
 
     try {
